@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
     <flow name="blogapi-test-main">
         <http:listener config-ref="blogapi-test-httpListenerConfig" path="/api/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
@@ -146,11 +147,88 @@ output application/json
         </ee:transform>
         <logger level="INFO" message="get:\user\(user-id):blogapi-test-config" />
     </flow>
-    <flow name="post:\user:blogapi-test-config">
-        <logger level="INFO" message="post:\user:blogapi-test-config" />
+    <flow name="post:\user:application\json:blogapi-test-config">
+        <logger level="INFO" message="POST:\user: Registering new user" />
+		<choice doc:name="Choice" doc:id="fea58ad9-6a76-46d8-875e-c46c72a5bbb9" >
+			<when expression="#[isBlank(payload.name)]">
+				<logger level="INFO" doc:name="Logger" doc:id="e33774f8-762b-4934-b087-d6a9d088a984" message="POST:\user: payload.name cannot be null"/>
+				<set-variable value="400" doc:name="HTTP 400" doc:id="c8483504-e0e5-48cf-9124-d40dba2d7a4d" variableName="httpStatus" />
+				<ee:transform doc:name="Name is Null" doc:id="6f2ccc58-6f78-4626-998b-7c4510cf4ecd">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+	success: false,
+	message: "fill in the Name field"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+			</when>
+			<otherwise>
+				<try doc:name="Try" doc:id="4f64a6ef-801f-4b0c-a48d-8c32d4e02137">
+			<db:insert doc:name="Insert" doc:id="53aeb363-1625-4109-9c97-a33584decf86" config-ref="Database_Config" autoGenerateKeys="true">
+			<db:sql><![CDATA[INSERT INTO user (name) VALUES (:name);]]></db:sql>
+			<db:input-parameters><![CDATA[#[{
+	name: payload.name
+}]]]></db:input-parameters>
+						<db:auto-generated-keys-column-names>
+							<db:auto-generated-keys-column-name value="id" />
+						</db:auto-generated-keys-column-names>
+		</db:insert>
+					<set-variable value="#[payload.generatedKeys.id]" doc:name="Set ID" doc:id="b2542494-cafc-4fbc-a3fc-f9ddcbf3a557" variableName="id" />
+					<choice doc:name="Choice" doc:id="8f08352a-a360-4534-9f50-dac00c85abf5">
+						<when expression="#[vars.id is Null]">
+							<logger level="WARN" doc:name="Logger" doc:id="05ca44bb-0001-4a3d-adac-a400c9a462be" message="POST:\user: Error when getting registered User's ID" />
+						</when>
+						<otherwise >
+							<db:select doc:name="Select" doc:id="779b7345-c0da-46a1-8393-9c6750d68ef0" config-ref="Database_Config">
+							<db:sql><![CDATA[SELECT id, name FROM user WHERE id = :id LIMIT 1]]></db:sql>
+							<db:input-parameters><![CDATA[#[{
+	id: vars.id
+}]]]></db:input-parameters>
+						</db:select>
+							<choice doc:name="Choice" doc:id="d4397376-084b-442c-a1af-a5f6e641a1c8">
+								<when expression="#[isEmpty(payload)]">
+									<set-variable value="404" doc:name="HTTP 404 - Not Found User" doc:id="a63864a7-8037-4d77-b4f4-c30077008321" variableName="httpStatus" />
+								</when>
+							</choice>
+							<ee:transform doc:name="Return Response with Data" doc:id="196aabb3-71c3-400e-a66b-481c1315029f">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+var user_found = vars.httpStatus != "404"
+---
+{
+	succcess: (user_found),
+	message: if (user_found) "user created successfully" else "user not found",
+	users: if (user_found) {id: payload[0].id, name: payload[0].name} else {} 
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+						</otherwise>
+					</choice>
+		</try>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="1e77a2be-60a1-49a5-ba8a-acc7a3c3d305">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  data: {
+    id: 3,
+    name: "Jorge"
+  },
+  success: true,
+  message: "User successfully created"
+} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
     </flow>
     <flow name="put:\user\(user-id):application\json:blogapi-test-config">
-        <ee:transform doc:name="Transform Message">
+		<ee:transform doc:name="Transform Message">
             <ee:variables>
                 <ee:set-variable variableName="user-id">attributes.uriParams.'user-id'</ee:set-variable>
             </ee:variables>
@@ -181,23 +259,6 @@ output application/json
 {
   success: true,
   message: "User's name updated"
-} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-    </flow>
-    <flow name="post:\user:application\json:blogapi-test-config">
-		<ee:transform doc:name="Transform Message">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-  data: {
-    id: 3,
-    name: "Jorge"
-  },
-  success: true,
-  message: "User successfully created"
 } as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
             </ee:message>
         </ee:transform>

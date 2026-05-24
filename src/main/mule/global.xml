@@ -14,10 +14,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
 	<http:listener-config name="blogapi-test-httpListenerConfig">
         <http:listener-connection host="0.0.0.0" port="8081" />
     </http:listener-config>
-    <apikit:config name="blogapi-test-config" api="resource::7cef7e3c-d931-4505-85f7-fab6374640fc:blogapi-test:1.0.2:raml:zip:blogapi-test.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" queryParamsStrictValidation="true" headersStrictValidation="true">
-		<apikit:flow-mappings >
-			<apikit:flow-mapping resource="/user" action="get" content-type="application/json" flow-ref="get:\user:blogapi-test-config" />
-		</apikit:flow-mappings>
+    <apikit:config name="blogapi-test-config" api="resource::7cef7e3c-d931-4505-85f7-fab6374640fc:blogapi-test:1.0.2:raml:zip:blogapi-test.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" queryParamsStrictValidation="true">
 	</apikit:config>
 	<configuration-properties doc:name="Configuration properties" doc:id="bc5b7301-c255-415e-ae21-18f8ddf99b48" file="${env}.properties" />
 	<global-property doc:name="Global Property" doc:id="4c9c47c1-a8bf-4c11-9ce6-d401fce6062e" name="env" value="dev" />
