@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
-http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
     <flow name="blogapi-test-main">
         <http:listener config-ref="blogapi-test-httpListenerConfig" path="/api/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
@@ -120,147 +119,421 @@ output application/json
             </on-error-propagate>
         </error-handler>
     </flow>
-	<flow name="put:\user\(user-id):blogapi-test-config">
-        <ee:transform doc:name="Transform Message">
-            <ee:variables>
-                <ee:set-variable variableName="user-id">attributes.uriParams.'user-id'</ee:set-variable>
-            </ee:variables>
-        </ee:transform>
-        <logger level="INFO" message="put:\user\(user-id):blogapi-test-config was called" />
-    </flow>
     <flow name="delete:\user\(user-id):blogapi-test-config">
-        <ee:transform doc:name="Transform Message">
-            <ee:variables>
-                <ee:set-variable variableName="user-id">attributes.uriParams.'user-id'</ee:set-variable>
-            </ee:variables>
-        </ee:transform>
-        <logger level="INFO" message="delete:\user\(user-id):blogapi-test-config" />
+        <logger level="INFO" doc:name="Logger" doc:id="efc112ab-259e-4add-a1a4-f0de6d8ac82a" message="DELETE:\user\(user-id): Listing all users" />
+		<choice doc:name="Choice" doc:id="419f3b08-dd26-48db-ae4e-4264dc259415" >
+			<when expression='#[attributes.uriParams."user-id" == 0 or attributes.uriParams."user-id" is Null]'>
+				<logger level="WARN" doc:name="Logger" doc:id="99dc1f64-f059-4edd-b345-62752df711fd" message="DELETE:\user\(user-id): Missing user-id uriParam" />
+				<set-variable value="400" doc:name="HTTP 400" doc:id="8f4ad4d8-69da-4889-bbd6-f404843f5a98" variableName="httpStatus"/>
+				<ee:transform doc:name="Transform Message" doc:id="85f61090-4acc-4047-92cf-dda931fa38ad">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+	success: false,
+	message: "missing user ID"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</when>
+			<otherwise >
+				<db:delete doc:name="Delete" doc:id="54fd345e-cf99-4fac-b4e7-66303ae917cd" config-ref="Database_Config" target="effectedRows">
+					<db:sql ><![CDATA[DELETE FROM user WHERE id = :id]]></db:sql>
+					<db:input-parameters ><![CDATA[#[{
+	id: attributes.uriParams."user-id"
+}]]]></db:input-parameters>
+				</db:delete>
+				<choice doc:name="Choice" doc:id="5a10b895-89fa-4622-ba28-a1c6ac6b352b">
+					<when expression="#[vars.effectedRows &gt; 0]">
+						<logger level="INFO" doc:name="Logger" doc:id="44fad36f-ac56-4b09-b921-6de3e06d4e48" message="#[&quot;DELETE:\user\(user-id): User with the $(attributes.uriParams.'user-id' as String default 'N/A') was successfully deleted from the database&quot;]" />
+						<ee:transform doc:name="Return Response" doc:id="2b13d386-1c97-42f0-a889-31373facbe7e">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+	success: true,
+	message: "User successfully deleted"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+					</when>
+					<otherwise >
+						<logger level="WARN" doc:name="Logger" doc:id="323e9c4b-4515-4dce-9b46-a53e6f231eec" message="#[&quot;DELETE:\user\(user-id): User with the $(attributes.uriParams.'user-id' as String default 'N/A') couldn\'t be deleted&quot;]" />
+						<set-variable value="404" doc:name="HTTP 404" doc:id="5a16f6a2-1e02-49d0-9571-5305410dc9e1" variableName="httpStatus" />
+						<ee:transform doc:name="Not Found User" doc:id="4a58d2ae-a3d0-4353-ac06-ddc023d732f3">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+	success: false,
+	message: "User could not be found"
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
     </flow>
     <flow name="get:\user:blogapi-test-config">
-        <logger level="INFO" message="get:\user:blogapi-test-config" />
+        <logger level="INFO" doc:name="Logger" doc:id="70b3610b-1606-44aa-9d10-ec4d6b7d8f29" message="GET:\user: Listing all users" />
+        <db:select doc:name="Select" doc:id="37dd9e91-9905-4edd-8a37-e15db3ff74db" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT id, name FROM user;]]></db:sql>
+        </db:select>
+        <ee:transform doc:name="Return Users" doc:id="05c9f1a8-a53d-4cb6-b01a-4757fdc7e2c8">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: true,
+	message: "List of all users",
+	users: payload default []
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
     </flow>
     <flow name="get:\user\(user-id):blogapi-test-config">
-        <ee:transform doc:name="Transform Message">
-            <ee:variables>
-                <ee:set-variable variableName="user-id">attributes.uriParams.'user-id'</ee:set-variable>
-            </ee:variables>
-        </ee:transform>
-        <logger level="INFO" message="get:\user\(user-id):blogapi-test-config" />
+        <logger level="INFO" doc:name="Logger" doc:id="3b01a696-de01-45e5-a52f-0e25942b049c" message="GET:\user\(user-id): Listing users by ID" />
+        <choice doc:name="Choice" doc:id="18b69d6d-4841-401a-9be7-e50253614303">
+            <when expression="#[attributes.uriParams.&quot;user-id&quot; is Null or attributes.uriParams.&quot;user-id&quot; == 0]">
+                <logger level="WARN" doc:name="Logger" doc:id="8f7ea434-450d-4f9b-b9a2-9812d7f56098" message="GET:\user\(user-id): Missing user-id in the uriParams"/>
+				<set-variable value="400" doc:name="HTTP 400" doc:id="b30f6dec-0ce3-40b3-84a5-6767799b19d5" variableName="httpStatus" />
+                <ee:transform doc:name="Missing ID" doc:id="99fadd66-5521-43fb-be78-7648135c3a6c">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: false,
+	message: "Error when trying to receive the ID",
+	users: []
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </when>
+			<otherwise>
+				<db:select doc:name="Select" doc:id="f475db7b-65f1-4a09-878f-b30e264378a0" config-ref="Database_Config">
+                    <db:sql><![CDATA[SELECT id, name FROM user WHERE id= :id;]]></db:sql>
+                    <db:input-parameters><![CDATA[#[{
+	id: attributes.uriParams."user-id"
+}]]]></db:input-parameters>
+                </db:select>
+				<choice doc:name="Choice" doc:id="ae35c56e-a11b-40e7-a36c-fc5ebb058d48">
+			<when expression="#[isEmpty(payload)]">
+						<logger level="WARN" doc:name="Logger" doc:id="456028fe-f9e4-449f-92c7-a03971989a6f" message='GET:\user\(user-id): Not found user'/>
+						<set-variable value="404" doc:name="HTTP 404" doc:id="39ec4e4c-dfc6-493b-9414-eb134dd44507" variableName="httpStatus"/>
+					</when>
+					<otherwise >
+						<logger level="INFO" doc:name="Logger" doc:id="768225ab-61b8-4376-8d0e-35c9f1921268" message="GET:\user\(user-id): User was found"/>
+					</otherwise>
+		</choice>
+				<ee:transform doc:name="Return User by ID" doc:id="7eac6c1c-a039-48f7-80c2-fc859f7d692d">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if(vars.httpStatus ==  "404") 
+{
+	success: false,
+	message: "Not found user",
+	users: []
+}
+else
+{
+	success: true,
+	message: "User found",
+	users: (payload default []) map (u, i) -> {id: u.id, name: u.name}
+}
+]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="put:\user\(user-id):application\json:blogapi-test-config">
+        <logger level="INFO" doc:name="Logger" doc:id="869551bf-21cd-4a84-9ff1-fc9049694e1a" message="PUT:\user\(user-id):  Changing user's name by ID" />
+		<choice doc:name="Choice" doc:id="6645a5f6-c5e0-4b77-aebe-392a1f5a369d" >
+			<when expression='#[attributes.uriParams."user-id" &lt;= 0 or attributes.uriParams."user-id" is Null]'>
+				<logger level="WARN" doc:name="Logger" doc:id="c4488c72-5e54-4dcd-aa33-e39061d94d0a" message="PUT:\user\(user-id): Missing user-id in the uriParams" />
+				<set-variable value="400" doc:name="HTTP 400" doc:id="f405cd1c-83f7-4835-a883-19a78b759832" variableName="httpStatus" />
+				<ee:transform doc:name="Missing ID" doc:id="70c231dd-ec7c-4244-afa7-7799c8f2df57" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: false,
+	message: "Error when trying to receive the ID",
+	users: []
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<choice doc:name="Choice" doc:id="1a0b05b3-f6c6-4be5-b3ef-3a9329078f05">
+			<when expression="#[isBlank(payload.name)]">
+						<logger level="WARN" doc:name="Logger" doc:id="c1cd98e0-6a2b-4759-9376-71ac35386882" message="PUT:\user\(user-id): Missing name into the payload body" />
+						<set-variable value="400" doc:name="HTTP 400" doc:id="b0f0984e-13c9-4dfd-a9fe-03e0253f97c9" variableName="httpStatus" />
+						<ee:transform doc:name="Missing Name" doc:id="066efb6c-2496-4fd7-ab9c-615b7e3b4268">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: false,
+	message: "Please enter the new name"
+}
+	
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</when>
+					<otherwise>
+				<db:update doc:name="Update" doc:id="0c0eb12c-a330-4a1f-97c9-965a15ee8ffe" config-ref="Database_Config" autoGenerateKeys="true" autoGeneratedKeysColumnNames="['id]">
+					<db:sql><![CDATA[UPDATE user SET name = :name WHERE id = :id]]></db:sql>
+					<db:input-parameters><![CDATA[#[{
+	name: payload.name,
+	id: attributes.uriParams."user-id"
+}]]]></db:input-parameters>
+				</db:update>
+						<set-variable value="#[payload.generatedKeys.GENERATED_KEY default 0]" doc:name="Set ID (User ID after update)" doc:id="a128aa58-0be5-484f-8fdc-d0d8ca21a841" variableName="id" />
+						<choice doc:name="Choice" doc:id="5b204da3-30cc-4e74-86e7-6c70af5015d5">
+							<when expression="#[vars.id &lt;= 0]">
+								<logger level="WARN" doc:name="Logger" doc:id="d633c19e-3072-4cd1-9077-3f4153214c7a" message="PUT:\user\(user-id): Error when getting registered User's ID" />
+								<ee:transform doc:name="Missing User ID" doc:id="d11cf1ff-aa12-46c2-9f5c-20ef832dbfe9">
+									<ee:message>
+										<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  data: null,
+  success: true,
+  message: "User successfully created"
+}]]></ee:set-payload>
+									</ee:message>
+								</ee:transform>
+							</when>
+							<otherwise >
+								<logger level="INFO" doc:name="Logger" doc:id="aa0f2141-8a5c-4751-aefa-77ac96340472" message="#[&quot;PUT:\user\(user-id): Searching for the user with $(vars.id as String default 'N\A')&quot;]" />
+								<db:select doc:name="Select" doc:id="0833659b-d642-4748-b723-26c6866cce1d" config-ref="Database_Config" >
+									<db:sql ><![CDATA[SELECT id, name FROM user WHERE id = :id LIMIT 1]]></db:sql>
+									<db:input-parameters ><![CDATA[#[{
+	id: vars.id
+}]]]></db:input-parameters>
+								</db:select>
+								<choice doc:name="Choice" doc:id="72c2097a-dba0-4513-a5eb-0032467a5861" >
+									<when expression="#[isEmpty(payload)]" >
+										<logger level="WARN" doc:name="Logger" doc:id="94de5fae-d647-4ef7-80b0-a325406a839f" message="PUT:\user\(user-id): User was not found after the update" />
+										<set-variable value="404" doc:name="HTTP 404 - Not Found User" doc:id="a265ce45-9407-4392-b7b2-b3d5c87e343a" variableName="httpStatus" />
+									</when>
+									<otherwise >
+										<logger level="INFO" doc:name="Logger" doc:id="dd3c2379-9127-4e36-aba8-98bcd8178e11" message="#[&quot;PUT:\user\(user-id): User with $(vars.id as String default 'N/A') ID was successfully updated and checked&quot;]" />
+										<set-variable value="201" doc:name="HTTP 200" doc:id="da93c03f-9287-46dc-aff9-cc424ede8963" variableName="httpStatus" />
+									</otherwise>
+								</choice>
+								<ee:transform doc:name="Return Response with Data" doc:id="c8b24df6-4c8d-45bd-8c29-588ceb21be9d" >
+									<ee:message >
+										<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var user_found = vars.httpStatus != "404"
+---
+{
+	success: (user_found),
+	message: if (user_found) "user data successfully updated" else "user not found",
+	users: if (user_found) {id: payload[0].id, name: payload[0].name} else {} 
+}]]></ee:set-payload>
+									</ee:message>
+								</ee:transform>
+							</otherwise>
+						</choice>
+			</otherwise>
+		</choice>
+			</otherwise>
+		</choice>
+    </flow>
+    <flow name="patch:\user\(user-id)\change-name:blogapi-test-config">
+		<logger level="INFO" doc:name="Logger" doc:id="5824fd6a-6fab-42f9-98fc-ec48449c7ade" message="PATCH:\user\(user-id):  Update user's data by ID" />
+		<choice doc:name="Choice" doc:id="087d1a33-8a54-4a0c-a73e-a1baad05940e" >
+			<when expression='#[attributes.uriParams."user-id" &lt;= 0 or attributes.uriParams."user-id" is Null]' >
+				<logger level="WARN" doc:name="Logger" doc:id="7848eb73-d2d0-4357-be81-39b5d42101e7" message="PATCH:\user\(user-id): Missing user-id in the uriParams" />
+				<set-variable value="400" doc:name="HTTP 40" doc:id="c42c8fc4-4e2e-4c03-8ec8-757a15c18738" variableName="httpStatus" />
+				<ee:transform doc:name="Missing ID" doc:id="c447d222-7fc0-4cf5-9f81-83891c694fc2" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: false,
+	message: "Error when trying to receive the ID",
+	users: []
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<choice doc:name="Choice" doc:id="43932aab-e378-45eb-bd81-56ac71c045ae" >
+					<when expression="#[isBlank(payload.name)]" >
+						<logger level="WARN" doc:name="Logger" doc:id="61c06d62-9f68-408f-ae9d-de23a83b48ae" message="PATCH:\user\(user-id): Missing name into the payload body" />
+						<set-variable value="400" doc:name="HTTP 400" doc:id="7f3d364b-46ad-43c9-b8d2-7af752ddd188" variableName="httpStatus" />
+						<ee:transform doc:name="Missing Name" doc:id="4edf88eb-2fbb-4145-8912-55076fef7786" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: false,
+	message: "Please enter the new name"
+}
+	
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</when>
+					<otherwise >
+						<db:update doc:name="Update" doc:id="dc704cc7-1578-4f33-9cdb-5841c4f61b9e" config-ref="Database_Config" autoGenerateKeys="true" autoGeneratedKeysColumnNames="['id]" >
+							<db:sql ><![CDATA[UPDATE user SET name = :name WHERE id = :id]]></db:sql>
+							<db:input-parameters ><![CDATA[#[{
+	name: payload.name,
+	id: attributes.uriParams."user-id"
+}]]]></db:input-parameters>
+						</db:update>
+						<set-variable value="#[payload.generatedKeys.GENERATED_KEY default 0]" doc:name="Set ID (User ID after update)" doc:id="67646a2e-8df9-49e3-aad5-05b796526fdd" variableName="id" />
+						<choice doc:name="Choice" doc:id="fba5662e-5cda-4ce8-a85a-22ac455b3ce6" >
+							<when expression="#[vars.id &lt;= 0]" >
+								<logger level="WARN" doc:name="Logger" doc:id="c0c077b1-cb87-472d-8195-495fa778f50e" message="PATCH:\user\(user-id): Error when getting registered User's ID" />
+								<ee:transform doc:name="Missing User ID" doc:id="350c10a4-89c4-44ec-93ce-c34557d654b7" >
+									<ee:message >
+										<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  data: null,
+  success: true,
+  message: "User successfully created"
+}]]></ee:set-payload>
+									</ee:message>
+								</ee:transform>
+							</when>
+							<otherwise >
+								<logger level="INFO" doc:name="Logger" doc:id="221ba018-8fbc-4650-8d80-09c4fca3e067" message="#[&quot;PATCH:\user\(user-id): Searching for the user with $(vars.id as String default 'N\A')&quot;]" />
+								<db:select doc:name="Select" doc:id="872a9ea6-ad90-4a4f-ad8f-a97818490897" config-ref="Database_Config" >
+									<db:sql ><![CDATA[SELECT id, name FROM user WHERE id = :id LIMIT 1]]></db:sql>
+									<db:input-parameters ><![CDATA[#[{
+	id: vars.id
+}]]]></db:input-parameters>
+								</db:select>
+								<choice doc:name="Choice" doc:id="14992d8f-cd2d-450c-8e98-785f0d345f80" >
+									<when expression="#[isEmpty(payload)]" >
+										<logger level="WARN" doc:name="Logger" doc:id="4a01c422-e34f-4dee-a3b2-669742fecc70" message="PATCH:\user\(user-id): User was not found after the update" />
+										<set-variable value="404" doc:name="HTTP 404 - Not Found User" doc:id="8175eee5-42aa-49b6-9f8f-fbf0c4aa0e78" variableName="httpStatus" />
+									</when>
+									<otherwise >
+										<logger level="INFO" doc:name="Logger" doc:id="6613cac7-9efd-416c-9c5b-ece43dd6d7f9" message="#[&quot;PATCH:\user\(user-id): User with $(vars.id as String default 'N/A') ID was successfully updated and checked&quot;]" />
+										<set-variable value="201" doc:name="HTTP 200" doc:id="4e957654-cc23-4a1c-b561-27f60e0e8068" variableName="httpStatus" />
+									</otherwise>
+								</choice>
+								<ee:transform doc:name="Return Response with Data" doc:id="7b46b5d8-2555-458a-affe-1226c237b764" >
+									<ee:message >
+										<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var user_found = vars.httpStatus != "404"
+---
+{
+	success: (user_found),
+	message: if (user_found) "user data successfully updated" else "user not found",
+	users: if (user_found) {id: payload[0].id, name: payload[0].name} else {} 
+}]]></ee:set-payload>
+									</ee:message>
+								</ee:transform>
+							</otherwise>
+						</choice>
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
     </flow>
     <flow name="post:\user:application\json:blogapi-test-config">
         <logger level="INFO" message="POST:\user: Registering new user" />
-		<choice doc:name="Choice" doc:id="fea58ad9-6a76-46d8-875e-c46c72a5bbb9" >
-			<when expression="#[isBlank(payload.name)]">
-				<logger level="INFO" doc:name="Logger" doc:id="e33774f8-762b-4934-b087-d6a9d088a984" message="POST:\user: payload.name cannot be null"/>
-				<set-variable value="400" doc:name="HTTP 400" doc:id="c8483504-e0e5-48cf-9124-d40dba2d7a4d" variableName="httpStatus" />
-				<ee:transform doc:name="Name is Null" doc:id="6f2ccc58-6f78-4626-998b-7c4510cf4ecd">
-						<ee:message>
-							<ee:set-payload><![CDATA[%dw 2.0
-output application/java
+        <choice doc:name="Choice" doc:id="fea58ad9-6a76-46d8-875e-c46c72a5bbb9">
+            <when expression="#[isBlank(payload.name)]">
+                <logger level="WARN" doc:name="Logger" doc:id="e33774f8-762b-4934-b087-d6a9d088a984" message="POST:\user: payload.name cannot be null" />
+                <set-variable value="400" doc:name="HTTP 400" doc:id="c8483504-e0e5-48cf-9124-d40dba2d7a4d" variableName="httpStatus" />
+                <ee:transform doc:name="Name is Null" doc:id="6f2ccc58-6f78-4626-998b-7c4510cf4ecd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
 ---
 {
 	success: false,
 	message: "fill in the Name field"
 }]]></ee:set-payload>
-						</ee:message>
-					</ee:transform>
-			</when>
-			<otherwise>
-				<try doc:name="Try" doc:id="4f64a6ef-801f-4b0c-a48d-8c32d4e02137">
-			<db:insert doc:name="Insert" doc:id="53aeb363-1625-4109-9c97-a33584decf86" config-ref="Database_Config" autoGenerateKeys="true">
-			<db:sql><![CDATA[INSERT INTO user (name) VALUES (:name);]]></db:sql>
-			<db:input-parameters><![CDATA[#[{
+                    </ee:message>
+                </ee:transform>
+            </when>
+            <otherwise>
+                <try doc:name="Try" doc:id="4f64a6ef-801f-4b0c-a48d-8c32d4e02137">
+                    <db:insert doc:name="Insert" doc:id="53aeb363-1625-4109-9c97-a33584decf86" config-ref="Database_Config" autoGenerateKeys="true" autoGeneratedKeysColumnNames="#[['id']]">
+                        <db:sql><![CDATA[INSERT INTO user (name) VALUES (:name);]]></db:sql>
+                        <db:input-parameters><![CDATA[#[{
 	name: payload.name
 }]]]></db:input-parameters>
-						<db:auto-generated-keys-column-names>
-							<db:auto-generated-keys-column-name value="id" />
-						</db:auto-generated-keys-column-names>
-		</db:insert>
-					<set-variable value="#[payload.generatedKeys.id]" doc:name="Set ID" doc:id="b2542494-cafc-4fbc-a3fc-f9ddcbf3a557" variableName="id" />
-					<choice doc:name="Choice" doc:id="8f08352a-a360-4534-9f50-dac00c85abf5">
-						<when expression="#[vars.id is Null]">
-							<logger level="WARN" doc:name="Logger" doc:id="05ca44bb-0001-4a3d-adac-a400c9a462be" message="POST:\user: Error when getting registered User's ID" />
-						</when>
-						<otherwise >
+                    </db:insert>
+                    <set-variable value="#[payload.generatedKeys.GENERATED_KEY]" doc:name="Set ID" doc:id="b2542494-cafc-4fbc-a3fc-f9ddcbf3a557" variableName="id" />
+                    <choice doc:name="Choice" doc:id="8f08352a-a360-4534-9f50-dac00c85abf5">
+                        <when expression="#[vars.id is Null]">
+                            <logger level="WARN" doc:name="Logger" doc:id="05ca44bb-0001-4a3d-adac-a400c9a462be" message="POST:\user: Error when getting registered User's ID" />
+                            <ee:transform doc:name="Transform Message" doc:id="1e77a2be-60a1-49a5-ba8a-acc7a3c3d305">
+                                <ee:message>
+                                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  data: null,
+  success: true,
+  message: "User successfully created"
+}]]></ee:set-payload>
+                                </ee:message>
+                            </ee:transform>
+                        </when>
+                        <otherwise>
+                            <logger level="INFO" doc:name="Logger" doc:id="124e3647-d081-44f5-8ba8-56585ce7a136" message="#[&quot;POST:\user: Searching for the user with $(vars.id as String default 'N\A')&quot;]" />
 							<db:select doc:name="Select" doc:id="779b7345-c0da-46a1-8393-9c6750d68ef0" config-ref="Database_Config">
-							<db:sql><![CDATA[SELECT id, name FROM user WHERE id = :id LIMIT 1]]></db:sql>
-							<db:input-parameters><![CDATA[#[{
+                                <db:sql><![CDATA[SELECT id, name FROM user WHERE id = :id LIMIT 1]]></db:sql>
+                                <db:input-parameters><![CDATA[#[{
 	id: vars.id
 }]]]></db:input-parameters>
-						</db:select>
-							<choice doc:name="Choice" doc:id="d4397376-084b-442c-a1af-a5f6e641a1c8">
-								<when expression="#[isEmpty(payload)]">
+                            </db:select>
+                            <choice doc:name="Choice" doc:id="d4397376-084b-442c-a1af-a5f6e641a1c8">
+                                <when expression="#[isEmpty(payload)]">
+                                    <logger level="WARN" doc:name="Logger" doc:id="48571a2a-fe86-4ed5-ac11-567168921877" message="POST:\user: User was not found after the insert" />
 									<set-variable value="404" doc:name="HTTP 404 - Not Found User" doc:id="a63864a7-8037-4d77-b4f4-c30077008321" variableName="httpStatus" />
-								</when>
-							</choice>
-							<ee:transform doc:name="Return Response with Data" doc:id="196aabb3-71c3-400e-a66b-481c1315029f">
-								<ee:message>
-									<ee:set-payload><![CDATA[%dw 2.0
-output application/java
+                                </when>
+								<otherwise >
+									<logger level="INFO" doc:name="Logger" doc:id="87cf8295-ca3a-4397-b2ae-6aec79f6171a" message="#[&quot;POST:\user: User with $(vars.id as String default 'N/A') ID was successfully created and checked&quot;]" />
+									<set-variable value="201" doc:name="HTTP 201" doc:id="e3ee0128-ec24-4505-99f8-9a9ffcdccb5b" variableName="httpStatus" />
+								</otherwise>
+                            </choice>
+                            <ee:transform doc:name="Return Response with Data" doc:id="196aabb3-71c3-400e-a66b-481c1315029f">
+                                <ee:message>
+                                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
 var user_found = vars.httpStatus != "404"
 ---
 {
-	succcess: (user_found),
+	success: (user_found),
 	message: if (user_found) "user created successfully" else "user not found",
 	users: if (user_found) {id: payload[0].id, name: payload[0].name} else {} 
 }]]></ee:set-payload>
-								</ee:message>
-							</ee:transform>
-						</otherwise>
-					</choice>
-		</try>
-			</otherwise>
-		</choice>
-		<ee:transform doc:name="Transform Message" doc:id="1e77a2be-60a1-49a5-ba8a-acc7a3c3d305">
-					<ee:message>
-						<ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-  data: {
-    id: 3,
-    name: "Jorge"
-  },
-  success: true,
-  message: "User successfully created"
-} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
-					</ee:message>
-				</ee:transform>
-    </flow>
-    <flow name="put:\user\(user-id):application\json:blogapi-test-config">
-		<ee:transform doc:name="Transform Message">
-            <ee:variables>
-                <ee:set-variable variableName="user-id">attributes.uriParams.'user-id'</ee:set-variable>
-            </ee:variables>
-        </ee:transform>
-        <ee:transform doc:name="Transform Message">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-  success: true,
-  message: "User data updated"
-} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-    </flow>
-    <flow name="patch:\user\(user-id)\change-name:blogapi-test-config">
-        <ee:transform doc:name="Transform Message" doc:id="5a4d45fa-fe58-42c7-8471-ca7cd9ace881">
-            <ee:variables>
-                <ee:set-variable variableName="user-id"><![CDATA[attributes.uriParams.'user-id']]></ee:set-variable>
-            </ee:variables>
-        </ee:transform>
-        <ee:transform doc:name="Transform Message">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-  success: true,
-  message: "User's name updated"
-} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
+                                </ee:message>
+                            </ee:transform>
+                        </otherwise>
+                    </choice>
+                </try>
+            </otherwise>
+        </choice>
     </flow>
 </mule>
