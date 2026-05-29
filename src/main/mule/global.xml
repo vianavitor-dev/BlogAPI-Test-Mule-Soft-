@@ -12,7 +12,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
 		<db:my-sql-connection host="${db.host}" port="${db.port}" user="${db.username}" password="${db.password}" database="blogapi_test" />
 	</db:config>
 	<http:listener-config name="blogapi-test-httpListenerConfig">
-        <http:listener-connection host="0.0.0.0" port="8081" />
+        <http:listener-connection host="0.0.0.0" port="${http.port}" />
     </http:listener-config>
     <apikit:config name="blogapi-test-config" api="resource::7cef7e3c-d931-4505-85f7-fab6374640fc:blogapi-test:1.0.2:raml:zip:blogapi-test.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" queryParamsStrictValidation="true">
 	</apikit:config>
